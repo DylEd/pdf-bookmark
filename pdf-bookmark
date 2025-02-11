@@ -1,0 +1,65 @@
+#!/bin/perl
+
+# pdf-bookmark orig.pdf bookmarks.book output.pdf
+
+# format of .book:
+# 	|Chapter 1 PAGENUMofCHAP1
+#	|	Subchapter 1.1 PAGENUMofSUBCHAP1_1
+# where | is the begining of the line
+#	and indentation is a consistent form of white space
+# any white space can separate PAGENUM and
+#	the title of the bookmark
+# new lines are ignored
+
+use File::Basename;
+use File::Temp qw|tempfile|;
+use String::ShellQuote;
+
+use integer;
+
+my ($tmp_fh,$tmp_fn)= tempfile();
+#my $tmp_fn = '/dev/fd/'.fileno($tmp_fh);
+
+sub convert {
+	open BOOKMARKS, '<', shift or die $!;
+
+	my $whitespace = '';
+	my $ws = "\t";
+
+	while(my $mark = <BOOKMARKS>)
+	{
+		next if $mark =~ /\A\Z/;
+		next if $mark =~ /\A\s*!-.*\Z/;
+
+		unless($whitespace)
+		{
+			if($mark =~ /\A(\s+)\S.*/)
+			{
+				$whitespace = $1;
+				$ws = $whitespace;
+			}
+		}
+
+		$mark =~ /($ws*)(.+)\s+(\d+)/;
+		my $level = 1 + (length $1) / (length $ws);
+		my $name = $2;
+		my $page = $3;
+
+		print $tmp_fh <<~HERE;
+		BookmarkBegin
+		BookmarkTitle: $name
+		BookmarkLevel: $level
+		BookmarkPageNumber: $page
+		HERE
+	}
+
+	close BOOKMARKS;
+}
+
+my $input = shell_quote $ARGV[0];
+my $bookmarks = $ARGV[1] // basename($ARGV[0]) . '.book';
+my $output = shell_quote($ARGV[2] // basename($ARGV[0]));
+
+convert $bookmarks;
+
+`pdftk ${input} update_info_utf8 '${tmp_fn}' output ${output}`;

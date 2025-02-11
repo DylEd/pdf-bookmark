@@ -1,0 +1,55 @@
+#!/bin/perl
+
+# pdf-bookmark orig.pdf bookmarks.book output.pdf
+
+use File::Basename;
+use String::ShellQuote;
+
+sub convert {
+	my $info = shift;
+	my @info_arr = split m|$/|, $info;
+	my $output = '';
+
+	my $line = $info_arr[0];
+	my $i = 0;
+	OUTLINE: while($i < scalar @info_arr)
+	{
+		while($line !~ /BookmarkBegin/)
+		{
+			$line = $info_arr[++$i];
+			last OUTLINE if $i >= scalar @info_arr;
+		}
+
+		my $name;
+		my $level;
+		my $page;
+
+		$line = $info_arr[++$i];
+		next unless($line =~ /BookmarkTitle:\s*(.*)/);
+		$name = $1;
+
+		$line = $info_arr[++$i];
+		next unless($line =~ /BookmarkLevel:\s*(.*)/);
+		$level = int($1);
+
+		$line = $info_arr[++$i];
+		next unless($line =~ /BookmarkPageNumber:\s*(.*)/);
+		$page = $1;
+
+		$output .= "\t" x ($level - 1) . "${name} ${page}${/}";
+	}
+
+	print $output;
+	$output;
+}
+
+my $input = shell_quote $ARGV[0];
+my $output = $ARGV[1] // basename($ARGV[0]) . '.book';
+
+my $meta_info = `pdftk ${input} dump_data_utf8`;
+
+open BOOKMARKS, '>', $output;
+
+print BOOKMARKS convert $meta_info;
+
+close BOOKMARKS;
