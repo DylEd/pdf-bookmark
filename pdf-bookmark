@@ -12,13 +12,11 @@
 # new lines are ignored
 
 use File::Basename;
-use File::Temp qw|tempfile|;
 use String::ShellQuote;
 
 use integer;
 
 my ($tmp_fh,$tmp_fn)= tempfile();
-#my $tmp_fn = '/dev/fd/'.fileno($tmp_fh);
 
 sub convert {
 	open BOOKMARKS, '<', shift or die $!;
